@@ -75,8 +75,8 @@ std::vector<Chunk> PDFParser::extractTextChunks(const char* filename)
             auto pageChunks = chunkTextWithMeta(pageText, i);
             allChunks.insert(allChunks.end(), pageChunks.begin(), pageChunks.end());
 
-            // print progress per page
-            std::cout << "Processed page " << (i + 1) << " / " << pageCount << std::endl;
+            // update progress bar
+            progress = static_cast<float>(i + 1) / pageCount;
         }
     }
     catch (const PdfError& err) {

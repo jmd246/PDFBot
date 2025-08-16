@@ -13,7 +13,7 @@
 
 
 void windowResizeCallback(GLFWwindow* window, int w, int h);
-
+void processInput(GLFWwindow* window);
 int main() {
     // Initialize GLFW
     if (!glfwInit()) return -1;
@@ -57,14 +57,29 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
+        processInput(window);
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
         // Demo window
         ImGui::Begin("Hello RAG GUI");
         ImGui::Text("This is your ImGui window!");
         ImGui::End();
+
+        if (!parser.extractionDone) {
+            ImGui::SetNextWindowSize(ImVec2(800, 600), 0);
+            ImGui::Begin("PDF Processing");
+            ImGui::Text("Extracting PDF ...");
+            ImGui::ProgressBar(parser.progress, ImVec2(0.0f, 0.0f));
+            ImGui::End();
+        }
+        else {
+            ImGui::Begin("PDF Processing");
+            ImGui::Text("Extracting PDF Complete!");
+            ImGui::End();
+        }
+
 
         // Rendering
         ImGui::Render();
@@ -86,6 +101,13 @@ int main() {
     glfwTerminate();
 
     return 0;
+}
+void processInput(GLFWwindow* window) {
+    if (!window) return;
+    
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
+        glfwSetWindowShouldClose(window, true);
+    }
 }
 
 void windowResizeCallback(GLFWwindow* window,int w, int h) {
