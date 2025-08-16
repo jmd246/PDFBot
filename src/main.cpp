@@ -13,24 +13,20 @@
 
 
 void windowResizeCallback(GLFWwindow* window, int w, int h);
+GLFWwindow* CreateWindow(int w, int h);
 void processInput(GLFWwindow* window);
+void render(GLFWwindow* window);
+void UIProgressBar(bool completed, float progress);
+void cleanup(GLFWwindow* window);
+void setupImGUI(GLFWwindow* window);
 int main() {
-    // Initialize GLFW
-    if (!glfwInit()) return -1;
+ 
+    GLFWwindow* window = CreateWindow(1200, 800);
 
-    // OpenGL 3.3 core
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "RAG GUI", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
+    if(!window){
+        std::cerr << "Failed to Create Window";
         return -1;
     }
-    glfwSetFramebufferSizeCallback(window, windowResizeCallback);
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // vsync
 
     // Initialize OpenGL loader
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -38,6 +34,77 @@ int main() {
         return -1;
     }
 
+    setupImGUI(window);
+    
+    PDFParser parser;
+    std::thread extractThread(
+        &PDFParser::extractPDFThread, // pointer to member function
+        &parser,                        // instance of the class
+        "C:/Users/Owner/OneDrive/Desktop/PDFBot/assets/pdfs/learn_opengl.pdf" //argument
+    );
+    extractThread.detach();
+
+    int imGUIMainScreenWidth, imGUIMainScreenHeight;
+
+
+    // Main loop
+    while (!glfwWindowShouldClose(window)) {
+       //Process input
+        glfwPollEvents();
+        processInput(window);
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        // Demo window
+        ImGui::Begin("Hello RAG GUI");
+        glfwGetWindowSize(window, &imGUIMainScreenWidth, &imGUIMainScreenHeight);
+        ImGui::SetWindowSize(ImVec2(static_cast<float>(imGUIMainScreenWidth), static_cast<float> (imGUIMainScreenHeight)), 0);
+        ImGui::SetWindowPos(ImVec2(0.0f, 0.0f), 0);
+        ImGui::Text("This is your ImGui window!");
+        ImGui::End();
+
+        UIProgressBar(parser.extractionDone, parser.progress);
+        // Rendering
+        render(window);
+    }
+    cleanup(window);
+    return 0;
+}
+
+void windowResizeCallback(GLFWwindow* window, int w, int h) {
+    if (window == NULL) return;
+    glViewport(0, 0, w, h);
+}
+
+GLFWwindow* CreateWindow(int width,int height) {
+
+    // Initialize GLFW
+    if (!glfwInit()) return nullptr;
+
+    // OpenGL 3.3 core
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+   GLFWwindow* window = glfwCreateWindow(height, width, "RAG GUI", nullptr, nullptr);
+    if (!window) {
+        glfwTerminate();
+        return nullptr;
+    }
+    
+    glfwSetFramebufferSizeCallback(window, windowResizeCallback);
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // vsync
+    
+    return window;
+}
+
+void setupImGUI(GLFWwindow* window) {
+    if (!window) {
+        std::cerr << "Window is uninitialized";
+        return;
+    }
     // Setup ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -46,62 +113,21 @@ int main() {
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
-    PDFParser parser;
-    std::thread extractThread(
-        &PDFParser::extractPDFThread, // pointer to member function
-        &parser,                        // instance of the class
-        "C:/Users/Owner/OneDrive/Desktop/PDFBot/assets/pdfs/learn_opengl.pdf" //argument
-    );
-    extractThread.detach();
-    // Main loop
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-
-        processInput(window);
-
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        // Demo window
-        ImGui::Begin("Hello RAG GUI");
-        ImGui::Text("This is your ImGui window!");
-        ImGui::End();
-
-        if (!parser.extractionDone) {
-            ImGui::SetNextWindowSize(ImVec2(800, 600), 0);
-            ImGui::Begin("PDF Processing");
-            ImGui::Text("Extracting PDF ...");
-            ImGui::ProgressBar(parser.progress, ImVec2(0.0f, 0.0f));
-            ImGui::End();
-        }
-        else {
-            ImGui::Begin("PDF Processing");
-            ImGui::Text("Extracting PDF Complete!");
-            ImGui::End();
-        }
-
-
-        // Rendering
-        ImGui::Render();
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(window);
-    }
-
-    // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
-
-    return 0;
 }
+
+void render(GLFWwindow* window) {
+    // Rendering
+    ImGui::Render();
+    int display_w, display_h;
+    glfwGetFramebufferSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(window);
+}
+
 void processInput(GLFWwindow* window) {
     if (!window) return;
     
@@ -109,8 +135,26 @@ void processInput(GLFWwindow* window) {
         glfwSetWindowShouldClose(window, true);
     }
 }
+void cleanup(GLFWwindow* window) {
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+void UIProgressBar(bool completed, float progress) {
+    if (!completed) {
+        ImGui::SetNextWindowSize(ImVec2(800, 600), 0);
+        ImGui::Begin("PDF Processing");
+        ImGui::Text("Extracting PDF ...");
+        ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f));
+        ImGui::End();
+    }
+    else {
+        ImGui::Begin("PDF Processing");
+        ImGui::Text("Extracting PDF Complete!");
+        ImGui::End();
+    }
 
-void windowResizeCallback(GLFWwindow* window,int w, int h) {
-    if (window == NULL) return;
-    glViewport(0, 0, w, h);
 }
