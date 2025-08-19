@@ -17,6 +17,7 @@ set(CMAKE_TOOLCHAIN_FILE
 )
 
 
+
 # Find packages installed with vcpkg
  find_package(podofo CONFIG REQUIRED)
 
@@ -26,12 +27,17 @@ find_package(glad CONFIG REQUIRED)
 
 
 
+
+
 # Executable
 add_executable(PDFBot
     src/main.cpp
- src/PDFParser.cpp)
+ src/PDFParser.cpp
+    vendors/ImGuiFileDialog/ImGuiFileDialog.cpp
+)
 
- target_include_directories(PDFBot PRIVATE include)
+
+
 
 # Link dependencies
 target_link_libraries(PDFBot PRIVATE
@@ -40,7 +46,10 @@ target_link_libraries(PDFBot PRIVATE
     glad::glad
     podofo::podofo
 )
-
+ target_include_directories(PDFBot PRIVATE include
+     vendors/ImGuiFileDialog
+ )
+ 
 # Optional: For MSVC warnings
 if (MSVC)
     target_compile_options(PDFBot PRIVATE /W4 /permissive-)

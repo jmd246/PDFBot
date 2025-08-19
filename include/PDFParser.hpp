@@ -17,13 +17,13 @@ public:
     std::vector<Chunk> allChunks;
     bool extractionDone = false;
 
-    void extractPDFThread(const char* filename);
+    void extractPDFThread(const std::string& filename);
     std::vector<Chunk> chunkTextWithMeta(
         const std::string& text,
         unsigned int pageNumber,
         size_t chunkWordSize = 600,
         size_t overlapWords = 100
     );
-    std::vector<Chunk> extractTextChunks(const char* filename);
+    std::vector<Chunk> extractTextChunks(const std::string& filename);
 };
 #endif // !

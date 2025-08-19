@@ -9,6 +9,7 @@
 #include <imgui_impl_glfw.h>
 #include <PDFParser.hpp>
 #include <thread>
+#include <ImGuiFileDialog.h>
 
 
 
@@ -19,6 +20,8 @@ void render(GLFWwindow* window);
 void UIProgressBar(bool completed, float progress);
 void cleanup(GLFWwindow* window);
 void setupImGUI(GLFWwindow* window);
+void ImGuiStartFrame();
+void createImGuiWindow(GLFWwindow* window,const char* title, const ImVec2& pos);
 int main() {
  
     GLFWwindow* window = CreateWindow(1200, 800);
@@ -36,16 +39,16 @@ int main() {
 
     setupImGUI(window);
     
+    
     PDFParser parser;
+    /*
     std::thread extractThread(
         &PDFParser::extractPDFThread, // pointer to member function
         &parser,                        // instance of the class
         "C:/Users/Owner/OneDrive/Desktop/PDFBot/assets/pdfs/learn_opengl.pdf" //argument
     );
     extractThread.detach();
-
-    int imGUIMainScreenWidth, imGUIMainScreenHeight;
-
+    */
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -53,18 +56,43 @@ int main() {
         glfwPollEvents();
         processInput(window);
 
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        // Demo window
-        ImGui::Begin("Hello RAG GUI");
-        glfwGetWindowSize(window, &imGUIMainScreenWidth, &imGUIMainScreenHeight);
-        ImGui::SetWindowSize(ImVec2(static_cast<float>(imGUIMainScreenWidth), static_cast<float> (imGUIMainScreenHeight)), 0);
-        ImGui::SetWindowPos(ImVec2(0.0f, 0.0f), 0);
+        ImGuiStartFrame();
+        createImGuiWindow(window,"Hello RAG GUI", ImVec2(0, 0));
         ImGui::Text("This is your ImGui window!");
         ImGui::End();
 
-        UIProgressBar(parser.extractionDone, parser.progress);
+
+     if (ImGui::Button("Load PDF")) {
+         ImGui::SetNextWindowSize(ImVec2(800,600),0);
+        ImGuiFileDialog::Instance()->OpenDialog("ChooseFiledlgKey", "Choose a pdf", ".pdf");
+     }
+     if (ImGuiFileDialog::Instance()->Display("ChooseFiledlgKey")) {
+         //check if selected a file
+         if (ImGuiFileDialog::Instance()->IsOk()) {
+             std::string safePath;
+          
+            
+
+             std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
+             std::cout << "Selected file: " << filePath << std::endl;
+          
+             std::thread extractThread(
+                 &PDFParser::extractPDFThread, // pointer to member function
+                 &parser,                        // instance of the class
+                 filePath //argument
+             );
+             extractThread.detach();
+         }
+     }
+     if (parser.progress > 0) {
+         UIProgressBar(parser.extractionDone, parser.progress);
+         // Close the dialog
+         ImGuiFileDialog::Instance()->Close();
+     }
+     if(parser.extractionDone){
+         parser.extractionDone = !parser.extractionDone;
+         parser.progress = 0;
+     }
         // Rendering
         render(window);
     }
@@ -99,7 +127,21 @@ GLFWwindow* CreateWindow(int width,int height) {
     
     return window;
 }
+void ImGuiStartFrame() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+void createImGuiWindow(GLFWwindow* window,const char* title, const ImVec2& pos) {
+    // Demo window
 
+    int imGUIMainScreenWidth, imGUIMainScreenHeight;
+    ImGui::Begin(title);
+    glfwGetWindowSize(window, &imGUIMainScreenWidth, &imGUIMainScreenHeight);
+    ImGui::SetWindowSize(ImVec2(static_cast<float>(imGUIMainScreenWidth), static_cast<float> (imGUIMainScreenHeight)), 0);
+    ImGui::SetWindowPos(pos, 0);
+
+}
 void setupImGUI(GLFWwindow* window) {
     if (!window) {
         std::cerr << "Window is uninitialized";
@@ -156,5 +198,4 @@ void UIProgressBar(bool completed, float progress) {
         ImGui::Text("Extracting PDF Complete!");
         ImGui::End();
     }
-
 }

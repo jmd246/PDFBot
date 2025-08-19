@@ -1,6 +1,6 @@
 #include <PDFParser.hpp>
 
-void PDFParser::extractPDFThread(const char* filename) {
+void PDFParser::extractPDFThread(const std::string& filename) {
     allChunks.clear();
     auto chunks = extractTextChunks(filename);
     allChunks.insert(allChunks.end(), chunks.begin(), chunks.end());
@@ -47,13 +47,13 @@ std::vector<Chunk> PDFParser::chunkTextWithMeta(const std::string& text, unsigne
 
 }
 
-std::vector<Chunk> PDFParser::extractTextChunks(const char* filename)
+std::vector<Chunk> PDFParser::extractTextChunks(const std::string& filename)
 {
     std::vector<Chunk> allChunks;
 
     try {
         PdfMemDocument pdf;
-        pdf.Load(filename);
+        pdf.Load(filename.c_str());
 
         auto& pages = pdf.GetPages();
         unsigned int pageCount = pages.GetCount();
