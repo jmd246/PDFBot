@@ -10,6 +10,7 @@
 #include <PDFParser.hpp>
 #include <thread>
 #include <ImGuiFileDialog.h>
+#include <future>
 
 
 
@@ -22,7 +23,16 @@ void cleanup(GLFWwindow* window);
 void setupImGUI(GLFWwindow* window);
 void ImGuiStartFrame();
 void createImGuiWindow(GLFWwindow* window,const char* title, const ImVec2& pos);
+
+struct PDFJob{
+    std::future<bool> fut;
+    std::unique_ptr<PDFParser> parser;
+};
+std::vector<PDFJob> jobs;
+std::vector< std::unique_ptr<PDFParser> > parsers;
+
 int main() {
+
  
     GLFWwindow* window = CreateWindow(1200, 800);
 
@@ -40,16 +50,6 @@ int main() {
     setupImGUI(window);
     
     
-    PDFParser parser;
-    /*
-    std::thread extractThread(
-        &PDFParser::extractPDFThread, // pointer to member function
-        &parser,                        // instance of the class
-        "C:/Users/Owner/OneDrive/Desktop/PDFBot/assets/pdfs/learn_opengl.pdf" //argument
-    );
-    extractThread.detach();
-    */
-
     // Main loop
     while (!glfwWindowShouldClose(window)) {
        //Process input
@@ -63,40 +63,53 @@ int main() {
 
 
      if (ImGui::Button("Load PDF")) {
-         ImGui::SetNextWindowSize(ImVec2(800,600),0);
+        ImGui::SetNextWindowSize(ImVec2(800,600),0);
         ImGuiFileDialog::Instance()->OpenDialog("ChooseFiledlgKey", "Choose a pdf", ".pdf");
      }
      if (ImGuiFileDialog::Instance()->Display("ChooseFiledlgKey")) {
          //check if selected a file
-         if (ImGuiFileDialog::Instance()->IsOk()) {
-             std::string safePath;
-          
-            
-
+         if (ImGuiFileDialog::Instance()->IsOk() && jobs.size() < 4) {
              std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
+             // When user selects a file
+             PDFJob job;
+             job.parser = std::make_unique<PDFParser>();
+             job.fut = std::async(std::launch::async, [filePath, parser = job.parser.get()]() -> bool {
+                 parser->extractTextChunks(filePath);
+                 return true; // dummy return
+             });
+
+             jobs.push_back(std::move(job));
              std::cout << "Selected file: " << filePath << std::endl;
+             std::cout << "Max threads: " << (unsigned)std::thread::hardware_concurrency();
+
           
-             std::thread extractThread(
-                 &PDFParser::extractPDFThread, // pointer to member function
-                 &parser,                        // instance of the class
-                 filePath //argument
-             );
-             extractThread.detach();
+           
          }
      }
-     if (parser.progress > 0) {
-         UIProgressBar(parser.extractionDone, parser.progress);
-         // Close the dialog
-         ImGuiFileDialog::Instance()->Close();
+     for (auto it = jobs.begin(); it != jobs.end(); ) {
+         if (it->fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+             it->fut.get(); // retrieve dummy result
+             it->parser->extractionDone = true;
+
+             // Optionally store parser somewhere else before erasing
+             parsers.push_back(std::move(it->parser));
+
+
+             it = jobs.erase(it); // remove job from active queue
+         }
+         else {
+             UIProgressBar(it->parser.get()->extractionDone, it->parser.get()->progress);
+             ++it;
+         }
      }
-     if(parser.extractionDone){
-         parser.extractionDone = !parser.extractionDone;
-         parser.progress = 0;
-     }
+
+   
         // Rendering
         render(window);
     }
+
     cleanup(window);
+    std::cout << parsers.size();
     return 0;
 }
 
@@ -179,6 +192,11 @@ void processInput(GLFWwindow* window) {
 }
 void cleanup(GLFWwindow* window) {
     // Cleanup
+    //ensure all threads finish before joining
+    for (auto& job : jobs) {
+        job.parser.get()->stopFlag = true;
+    }
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

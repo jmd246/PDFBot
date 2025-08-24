@@ -13,10 +13,10 @@ struct Chunk {
 
 class PDFParser{
 public:
-    std::atomic<float> progress{ 0.0f };
+    float progress = 0.0f ;
     std::vector<Chunk> allChunks;
     bool extractionDone = false;
-
+    std::atomic<bool> stopFlag;
     void extractPDFThread(const std::string& filename);
     std::vector<Chunk> chunkTextWithMeta(
         const std::string& text,

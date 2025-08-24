@@ -60,6 +60,7 @@ std::vector<Chunk> PDFParser::extractTextChunks(const std::string& filename)
         std::cout << "Number of pages: " << pageCount << std::endl;
 
         for (unsigned int i = 0; i < pageCount; ++i) {
+            if (stopFlag) break;
             PdfPage* page = &pages.GetPageAt(i);
             std::vector<PdfTextEntry> entries;
             page->ExtractTextTo(entries);
@@ -70,7 +71,9 @@ std::vector<Chunk> PDFParser::extractTextChunks(const std::string& filename)
                 oss << entry.Text << " ";
             }
             std::string pageText = oss.str();
-
+            //skip if page is empty
+            if (pageText.empty()) continue;
+            
             // Chunk the page text
             auto pageChunks = chunkTextWithMeta(pageText, i);
             allChunks.insert(allChunks.end(), pageChunks.begin(), pageChunks.end());
