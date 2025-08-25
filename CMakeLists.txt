@@ -32,9 +32,10 @@ find_package(glad CONFIG REQUIRED)
 # Executable
 add_executable(PDFBot
     src/main.cpp
- src/PDFParser.cpp
+    src/PDFParser.cpp
+    src/JobManager.cpp
     vendors/ImGuiFileDialog/ImGuiFileDialog.cpp
-)
+ )
 
 
 
