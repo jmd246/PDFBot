@@ -49,8 +49,6 @@ std::vector<Chunk> PDFParser::chunkTextWithMeta(const std::string& text, unsigne
 
 std::vector<Chunk> PDFParser::extractTextChunks(const std::string& filename)
 {
-    std::vector<Chunk> allChunks;
-
     try {
         PdfMemDocument pdf;
         pdf.Load(filename.c_str());

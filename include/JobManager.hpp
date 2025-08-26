@@ -12,14 +12,21 @@ struct PDFJob {
 };
 
 class JobManager {
-public:
+private:
     std::vector<PDFJob> jobs;
     std::vector< std::unique_ptr<PDFParser> > parsers;
+public:
     void displayProgress() ;
     void endJobs();
     void extractPDF(const std::string& filePath);
     void displayCompletedParsers();
-private:
+    size_t getJobSize() const {
+        return jobs.size();
+    }
+    size_t getParserSize() const {
+        return parsers.size();
+    }
+
 
 
 };

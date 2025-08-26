@@ -24,7 +24,7 @@ void UIProgressBar(bool completed, float progress) {
 }
 void JobManager::endJobs() {
     for (auto& job : jobs) {
-        job.parser.get()->stopFlag = true;
+        job.parser->stopFlag = true;
     }
 }
 void JobManager::displayProgress() {
@@ -49,7 +49,7 @@ void JobManager::displayProgress() {
 void JobManager::displayCompletedParsers() {
     ImGui::Begin("PDF Processed");
     for (auto& parser : parsers ) {
-        ImGui::Text("Extracting PDF Complete!");
+        ImGui::Text( "%s", parser->allChunks.front().text.c_str());
     }
     ImGui::End();
 

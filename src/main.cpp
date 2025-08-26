@@ -18,7 +18,8 @@ void render(GLFWwindow* window);
 void cleanup(GLFWwindow* window);
 void setupImGUI(GLFWwindow* window);
 void ImGuiStartFrame();
-void createImGuiWindow(GLFWwindow* window,const char* title, const ImVec2& pos);
+void createImGuiWindow(const char* title, const ImVec2& size,const ImVec2& pos);
+void createImGuiWindow(GLFWwindow* window, const char* title, const ImVec2& pos);
 
 
 const char* windowGUIKey = "ChooseFiledlgKey";
@@ -41,46 +42,43 @@ int main() {
     setupImGUI(window);
     // Main loop
     while (!glfwWindowShouldClose(window)) {
-       //Process input
+        //Process input
         glfwPollEvents();
         processInput(window);
-
         ImGuiStartFrame();
-        createImGuiWindow(window,"Hello RAG GUI", ImVec2(0, 0));
-        ImGui::Text("Ready to fine tune your ai experience ?\n Get Started by extracting a PDF or use the webscrape module.");
+
+        createImGuiWindow(window, "Hello RAG GUI",ImVec2(0, 0));
+        ImGui::Text("Ready to fine tune your ai experience ?\nGet Started by extracting a PDF or use the webscrape module.");
         ImGui::End();
+        if (jobManager.getJobSize() < maxThreads) {
+            createImGuiWindow("Tools", ImVec2(800, 600), ImVec2(50, 100));
+            if (ImGui::Button("Load PDF")) {
+                ImGui::SetNextWindowSize(ImVec2(width, height), 0);
+                ImGuiFileDialog::Instance()->OpenDialog(windowGUIKey, "Choose a pdf", ".pdf");
+            }
+            ImGui::End();
+        }
+        if (ImGuiFileDialog::Instance()->Display(windowGUIKey)) {
+            //check if selected a file
+            if (ImGuiFileDialog::Instance()->IsOk() && jobManager.getJobSize() < maxThreads) {
+                std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
+                jobManager.extractPDF(filePath);
+                ImGuiFileDialog::Instance()->Close();
+            }
+            else {
+                ImGuiFileDialog::Instance()->Close();
+            }
+        }
 
-
-     if (ImGui::Button("Load PDF")) {
-        ImGui::SetNextWindowSize(ImVec2(width,height),0);
-        ImGuiFileDialog::Instance()->OpenDialog(windowGUIKey, "Choose a pdf", ".pdf");
-     }
-     if (ImGuiFileDialog::Instance()->Display(windowGUIKey)) {
-         //check if selected a file
-         if (ImGuiFileDialog::Instance()->IsOk() && jobManager.jobs.size() < maxThreads) {
-             std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
-             jobManager.extractPDF(filePath);
-          
-          
-             ImGuiFileDialog::Instance()->Close();
-         }
-         else {
-             ImGuiFileDialog::Instance()->Close();
-         }
-     }
         //display progress of active jobs
-
         jobManager.displayProgress();
-        if (jobManager.parsers.size() > 0) {
+        if (jobManager.getParserSize() > 0) {
             jobManager.displayCompletedParsers();
         }
-   
         // Rendering
         render(window);
     }
-
     cleanup(window);
-    std::cout << jobManager.parsers.size();
     return 0;
 }
 
@@ -89,7 +87,7 @@ void windowResizeCallback(GLFWwindow* window, int w, int h) {
     glViewport(0, 0, w, h);
 }
 
-GLFWwindow* CreateWindow(int width,int height) {
+GLFWwindow* CreateWindow(int w,int h) {
 
     // Initialize GLFW
     if (!glfwInit()) return nullptr;
@@ -99,7 +97,7 @@ GLFWwindow* CreateWindow(int width,int height) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-   GLFWwindow* window = glfwCreateWindow(height, width, "RAG GUI", nullptr, nullptr);
+   GLFWwindow* window = glfwCreateWindow(w, h, "RAG GUI", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return nullptr;
@@ -116,11 +114,16 @@ void ImGuiStartFrame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
-void createImGuiWindow(GLFWwindow* window,const char* title, const ImVec2& pos) {
+void createImGuiWindow(GLFWwindow* window,const char* title,const ImVec2& pos) {
     int imGUIMainScreenWidth, imGUIMainScreenHeight;
     ImGui::Begin(title);
     glfwGetWindowSize(window, &imGUIMainScreenWidth, &imGUIMainScreenHeight);
     ImGui::SetWindowSize(ImVec2(static_cast<float>(imGUIMainScreenWidth), static_cast<float> (imGUIMainScreenHeight)), 0);
+    ImGui::SetWindowPos(pos, 0);
+}
+void createImGuiWindow(const char* title, const ImVec2& size,const ImVec2& pos) {
+    ImGui::Begin(title);
+    ImGui::SetWindowSize(size, 0);
     ImGui::SetWindowPos(pos, 0);
 }
 void setupImGUI(GLFWwindow* window) {
@@ -162,7 +165,6 @@ void cleanup(GLFWwindow* window) {
     // Cleanup
     //ensure all threads finish before joining
     jobManager.endJobs();
-
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
