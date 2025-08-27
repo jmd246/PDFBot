@@ -34,8 +34,10 @@ add_executable(PDFBot
     src/main.cpp
     src/PDFParser.cpp
     src/JobManager.cpp
+    src/UI.cpp
+    src/Input.cpp
     vendors/ImGuiFileDialog/ImGuiFileDialog.cpp
- )
+  )
 
 
 

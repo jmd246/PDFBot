@@ -3,28 +3,14 @@
 #include <glad/glad.h>
 #include <imgui.h>
 #include <GLFW/glfw3.h>
-#include <imgui_impl_opengl3.h>
-#include <imgui_impl_glfw.h>
-#include <PDFParser.hpp>
-#include <JobManager.hpp>
-#include <ImGuiFileDialog.h>
+#include <Input.hpp>
+#include<UI.hpp>
 
-
-
-void windowResizeCallback(GLFWwindow* window, int w, int h);
 GLFWwindow* CreateWindow(int w, int h);
-void processInput(GLFWwindow* window);
+void windowResizeCallback(GLFWwindow* window, int w, int h);
 void render(GLFWwindow* window);
-void cleanup(GLFWwindow* window);
-void setupImGUI(GLFWwindow* window);
-void ImGuiStartFrame();
-void createImGuiWindow(const char* title, const ImVec2& size,const ImVec2& pos);
-void createImGuiWindow(GLFWwindow* window, const char* title, const ImVec2& pos);
-
-
-const char* windowGUIKey = "ChooseFiledlgKey";
+void cleanup(GLFWwindow* window,UI& ui);
 const uint16_t width = 1200, height = 800;
-const uint8_t maxThreads = 4;
 JobManager jobManager;
 
 
@@ -39,46 +25,39 @@ int main() {
         std::cerr << "Failed to initialize OpenGL\n";
         return -1;
     }
-    setupImGUI(window);
+
+    UI ui(window,jobManager);
+    
+    Input input;
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         //Process input
         glfwPollEvents();
-        processInput(window);
-        ImGuiStartFrame();
-
-        createImGuiWindow(window, "Hello RAG GUI",ImVec2(0, 0));
+        input.ProcessInput(window);
+        ui.ImGuiStartFrame();
+        ui.createImGuiWindow(window, "Hello RAG GUI",ImVec2(0, 0));
+        
         ImGui::Text("Ready to fine tune your ai experience ?\nGet Started by extracting a PDF or use the webscrape module.");
         ImGui::End();
-        if (jobManager.getJobSize() < maxThreads) {
-            createImGuiWindow("Tools", ImVec2(800, 600), ImVec2(50, 100));
-            if (ImGui::Button("Load PDF")) {
-                ImGui::SetNextWindowSize(ImVec2(width, height), 0);
-                ImGuiFileDialog::Instance()->OpenDialog(windowGUIKey, "Choose a pdf", ".pdf");
-            }
+        
+        if (jobManager.getJobSize() < jobManager.m_max_threads) {
+            ui.createImGuiWindow("Tools", ImVec2(800, 600), ImVec2(50, 100));
+            ui.UIButton("Load PDF", "Choose a PDF", ".pdf");
             ImGui::End();
         }
-        if (ImGuiFileDialog::Instance()->Display(windowGUIKey)) {
-            //check if selected a file
-            if (ImGuiFileDialog::Instance()->IsOk() && jobManager.getJobSize() < maxThreads) {
-                std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
-                jobManager.extractPDF(filePath);
-                ImGuiFileDialog::Instance()->Close();
-            }
-            else {
-                ImGuiFileDialog::Instance()->Close();
-            }
-        }
 
+        ui.UIButtonClick();
+        
         //display progress of active jobs
-        jobManager.displayProgress();
-        if (jobManager.getParserSize() > 0) {
-            jobManager.displayCompletedParsers();
-        }
+        ui.DisplayProgress();
+
+        //display completed parsers
+        ui.displayCompletedParsers();
+
         // Rendering
         render(window);
     }
-    cleanup(window);
+    cleanup(window,ui);
     return 0;
 }
 
@@ -109,37 +88,7 @@ GLFWwindow* CreateWindow(int w,int h) {
     
     return window;
 }
-void ImGuiStartFrame() {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-}
-void createImGuiWindow(GLFWwindow* window,const char* title,const ImVec2& pos) {
-    int imGUIMainScreenWidth, imGUIMainScreenHeight;
-    ImGui::Begin(title);
-    glfwGetWindowSize(window, &imGUIMainScreenWidth, &imGUIMainScreenHeight);
-    ImGui::SetWindowSize(ImVec2(static_cast<float>(imGUIMainScreenWidth), static_cast<float> (imGUIMainScreenHeight)), 0);
-    ImGui::SetWindowPos(pos, 0);
-}
-void createImGuiWindow(const char* title, const ImVec2& size,const ImVec2& pos) {
-    ImGui::Begin(title);
-    ImGui::SetWindowSize(size, 0);
-    ImGui::SetWindowPos(pos, 0);
-}
-void setupImGUI(GLFWwindow* window) {
-    if (!window) {
-        std::cerr << "Window is uninitialized";
-        return;
-    }
-    // Setup ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
-}
 
 void render(GLFWwindow* window) {
     // Rendering
@@ -153,20 +102,10 @@ void render(GLFWwindow* window) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window);
 }
-
-void processInput(GLFWwindow* window) {
-    if (!window) return;
-    
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
-        glfwSetWindowShouldClose(window, true);
-    }
-}
-void cleanup(GLFWwindow* window) {
+void cleanup(GLFWwindow* window, UI& ui) {
     // Cleanup
     //ensure all threads finish before joining
-    jobManager.endJobs();
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ui.ShutDown();
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
